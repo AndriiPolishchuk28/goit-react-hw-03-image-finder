@@ -3,13 +3,20 @@ import { ReactComponent as SearchIcon } from '../icons/search-svgrepo-com.svg';
 import css from './SearchBar.module.css';
 
 export class SearchBar extends Component {
+  state = {
+    searchQuery: '',
+  };
+
+  onChangeHandle = e => {
+    this.setState({ searchQuery: e.target.value });
+  };
+
   handleSubmit = e => {
     e.preventDefault();
-
-    const query = e.currentTarget.elements.search.value;
-    const formattedQuery = query.trim().toLowerCase();
-
+    const { searchQuery } = this.state;
+    const formattedQuery = searchQuery.trim().toLowerCase();
     this.props.onSubmit(formattedQuery);
+    this.setState({ searchQuery: '' });
   };
 
   render() {
@@ -21,6 +28,8 @@ export class SearchBar extends Component {
           </button>
 
           <input
+            onChange={this.onChangeHandle}
+            value={this.state.searchQuery}
             className={css.input}
             name="search"
             type="text"

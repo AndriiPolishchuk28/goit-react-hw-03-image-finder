@@ -4,16 +4,17 @@ import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Button } from './Button/Button';
 import { Loader } from './Loader/Loader';
 import { Modal } from './Modal/Modal';
-import { fetchImages } from './api/api';
+import { fetchImages } from '../api/api';
 import { Notify } from 'notiflix';
+import { STATUSES } from 'constants/constants';
 
 export class App extends Component {
   state = {
+    status: STATUSES.idle,
     perPage: 12,
     query: '',
     images: [],
     page: 1,
-    isLoading: false,
     totalHits: 0,
     isModal: false,
     selectedPhoto: null,
@@ -21,8 +22,8 @@ export class App extends Component {
   };
 
   onSubmit = query => {
-    if (query.trim() !== '') {
-      this.setState({ query });
+    if (query !== '') {
+      this.setState({ query, page: 1, images: [] });
     }
   };
 
@@ -42,31 +43,38 @@ export class App extends Component {
     const { query, page, perPage } = this.state;
 
     if (query !== prevState.query || page !== prevState.page) {
-      this.setState({ isLoading: true });
+      this.setState({ status: STATUSES.pending });
       fetchImages(query, page, perPage)
-        .then(({ totalHits, hits }) =>
+        .then(({ totalHits, hits }) => {
+          if (hits.length === 0) {
+            Notify.failure('There is no images with this query');
+            this.setState({ status: STATUSES.idle });
+            return;
+          }
           this.setState(prevState => ({
-            images: page === 1 ? hits : [...prevState.images, ...hits],
+            status: STATUSES.resolved,
+            images: [...prevState.images, ...hits],
             totalHits,
-          }))
-        )
-        .finally(() => this.setState({ isLoading: false }))
+          }));
+        })
         .catch(error => {
+          this.setState({ status: STATUSES.rejected });
           Notify.failure(`${error.message}`);
         });
     }
   }
 
   render() {
-    const { images, isLoading, totalHits, isModal, selectedPhoto } = this.state;
+    const { images, totalHits, isModal, selectedPhoto, status } = this.state;
+    const showMore =
+      status === STATUSES.resolved && images.length !== totalHits;
+
     return (
       <>
         <SearchBar onSubmit={this.onSubmit} />
         <ImageGallery images={images} modalUrl={this.onSelectedPhoto} />
-        {isLoading && <Loader />}
-        {images.length !== totalHits && !isLoading && (
-          <Button loadMore={this.onLoadHandle} />
-        )}
+        {status === STATUSES.pending && <Loader />}
+        {showMore && <Button loadMore={this.onLoadHandle} />}
         {isModal && (
           <Modal url={selectedPhoto} closeModal={this.handleCloseModal} />
         )}
